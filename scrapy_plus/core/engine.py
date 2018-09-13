@@ -32,7 +32,7 @@ class Engine(object):
         self.__start()
         stop = datetime.now()
         logger.info("运行结束时间：%s" % stop)
-        logger.info("耗时：%.2f" % (stop - start).total_seconds())
+        logger.info("耗时：%.2f秒" % (stop - start).total_seconds())
 
     def __start(self):
         """私有启动引擎的方法，实现核心代码"""
