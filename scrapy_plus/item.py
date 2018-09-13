@@ -8,9 +8,9 @@ class Item(object):
         """
         :param data: 封装的数据
         """
-        self._data = data
+        self.__data = data
 
     @property
     def data(self):
         # 返回数据
-        return self._data
+        return self.__data
