@@ -11,14 +11,18 @@ from item import Item
 
 class Spider(object):
     # 1.准备起始URL
-    start_url = 'http://www.baidu.com'
+    start_urls = []
 
     def start_request(self):
         # 2.构建起始请求
-        # 返回请求数据
-        return Request(self.start_url)
+        # 遍历起始URL列表，创建请求对象，交给引擎
+        for url in self.start_urls:
+            # 返回请求数据
+            yield Request(url)
 
     @staticmethod
     def parse(response):
         # 3.对响应数据进行解析，返回数据或新请求
-        return Item(response.body)
+        item = Item(response.url)
+
+        return item
