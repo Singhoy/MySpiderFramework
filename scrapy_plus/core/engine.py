@@ -1,7 +1,10 @@
 """引擎组件"""
+from datetime import datetime
+
 from _http.request import Request
 from middlewares.downloader_middlewares import DownloaderMiddleware
 from middlewares.spider_middlewares import SpiderMiddleware
+from utils.log import logger
 from .pipeline import Pipeline
 from .downloader import Downloader
 from .scheduler import Scheduler
@@ -24,7 +27,12 @@ class Engine(object):
 
     def start(self):
         """启动引擎，对外提供接口"""
+        start = datetime.now()
+        logger.info("开始运行时间：%s" % start)
         self.__start()
+        stop = datetime.now()
+        logger.info("运行结束时间：%s" % stop)
+        logger.info("耗时：%.2f" % (stop - start).total_seconds())
 
     def __start(self):
         """私有启动引擎的方法，实现核心代码"""
