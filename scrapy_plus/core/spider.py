@@ -1,6 +1,5 @@
 """爬虫组件封装"""
-from requests import Request
-
+from _http.request import Request
 from item import Item
 
 """
