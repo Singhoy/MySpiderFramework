@@ -4,13 +4,13 @@ DEFAULT_LOG_FILENAME = '日志.log'
 # 配置爬虫
 SPIDERS = [
     'spiders.baidu.BaiduSpider',
-    'spiders.douban.DoubanSpider',
+    # 'spiders.douban.DoubanSpider',
 ]
 
 # 配置管道
 PIPELINES = [
     'pipelines.BaiduPipeline',
-    'pipelines.DoubanPipeline',
+    # 'pipelines.DoubanPipeline',
 ]
 
 # 配置下载器中间件
