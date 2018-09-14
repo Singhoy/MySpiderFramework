@@ -1,7 +1,7 @@
 """下载器模块"""
 import requests
 
-from .._http.response import Response
+from scrapy_plus.win_http.response import Response
 
 
 class Downloader(object):

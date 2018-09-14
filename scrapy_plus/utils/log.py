@@ -1,7 +1,7 @@
 import logging
 import sys
 
-from conf import settings
+from scrapy_plus.conf import settings
 
 
 class Logger(object):

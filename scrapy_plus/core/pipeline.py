@@ -4,8 +4,7 @@
 class Pipeline(object):
     """负责处理数据对象（Item）"""
 
-    @staticmethod
-    def process_item(item):
-        print(item.data)
+    def process_item(self, item):
+        # print(item.data)
 
         return item

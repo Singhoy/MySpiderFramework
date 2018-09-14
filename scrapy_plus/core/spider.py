@@ -1,6 +1,6 @@
 """爬虫组件封装"""
-from _http.request import Request
-from item import Item
+from scrapy_plus.item import Item
+from scrapy_plus.win_http.request import Request
 
 """
 1. 准备起始URL
@@ -10,7 +10,7 @@ from item import Item
 
 
 class Spider(object):
-    # 1.准备起始URL
+    # 1.准备起始URL列表
     start_urls = []
 
     def start_request(self):
@@ -20,8 +20,7 @@ class Spider(object):
             # 返回请求数据
             yield Request(url)
 
-    @staticmethod
-    def parse(response):
+    def parse(self, response):
         # 3.对响应数据进行解析，返回数据或新请求
         item = Item(response.url)
 

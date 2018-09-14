@@ -1,13 +1,14 @@
 """引擎组件"""
+from collections import Iterable
 from datetime import datetime
 
-from _http.request import Request
-from middlewares.downloader_middlewares import DownloaderMiddleware
-from middlewares.spider_middlewares import SpiderMiddleware
-from utils.log import logger
-from .pipeline import Pipeline
-from .downloader import Downloader
-from .scheduler import Scheduler
+from scrapy_plus.core.downloader import Downloader
+from scrapy_plus.core.pipeline import Pipeline
+from scrapy_plus.core.scheduler import Scheduler
+from scrapy_plus.middlewares.downloader_middlewares import DownloaderMiddleware
+from scrapy_plus.middlewares.spider_middlewares import SpiderMiddleware
+from scrapy_plus.utils.log import logger
+from scrapy_plus.win_http.request import Request
 
 
 class Engine(object):
@@ -54,28 +55,42 @@ class Engine(object):
                 break
 
     def __execute_request_response_item(self):
+        """处理请求、响应和数据方法"""
         # 从调度器获取请求对象，交给下载器发起请求，获取一个响应对象
         request = self.scheduler.get_request()
         # 利用下载器中间件预处理请求对象
         request = self.downloader_middleware.process_request(request)
         # 利用下载器发起请求
         response = self.downloader.get_response(request)
+        # 把请求的meta数据传递给response
+        response.meta = request.meta
+
         # 利用下载器中间件预处理响应对象
         response = self.downloader_middleware.process_response(response)
         # 调用爬虫中间件的process_response方法，处理响应
         response = self.spider_middleware.process_response(response)
 
-        # 利用爬虫的解析响应方法，处理响应，得到结果
-        result = self.spider.parse(response)
-        # 判断结果对象
-        if isinstance(result, Request):
-            # 如果是请求对象，就再交给调度器
-            # 利用爬虫中间件预处理请求对象
-            result = self.spider_middleware.process_request(result)
-            self.scheduler.add_request(result)
+        # 如果有该请求有对应解析函数callback，就使用callback来解析数据
+        if request.callback:
+            # 接收解析函数，处理结果
+            results = request.callback(response)
         else:
-            # 否则，交给管道处理
-            self.pipeline.process_item(result)
+            # 如果没有callback就使用parse函数来解析数据
+            results = self.spider.parse(response)
+
+        # 判断results是不是可迭代对象，如果不可迭代，变为可迭代的
+        if not isinstance(results, Iterable):
+            results = [results]
+        for result in results:
+            # 判断结果对象
+            if isinstance(result, Request):
+                # 如果是请求对象，就再交给调度器
+                # 利用爬虫中间件预处理请求对象
+                result = self.spider_middleware.process_request(result)
+                self.scheduler.add_request(result)
+            else:
+                # 否则，交给管道处理
+                self.pipeline.process_item(result)
 
         # 统计总的响应数量，每次递增1
         self.total_response_count += 1
