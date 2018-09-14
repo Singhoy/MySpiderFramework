@@ -1,12 +1,11 @@
 """引擎组件"""
+import importlib
 from collections import Iterable
 from datetime import datetime
 
+from scrapy_plus.conf import settings
 from scrapy_plus.core.downloader import Downloader
-from scrapy_plus.core.pipeline import Pipeline
 from scrapy_plus.core.scheduler import Scheduler
-from scrapy_plus.middlewares.downloader_middlewares import DownloaderMiddleware
-from scrapy_plus.middlewares.spider_middlewares import SpiderMiddleware
 from scrapy_plus.utils.log import logger
 from scrapy_plus.win_http.request import Request
 
@@ -17,16 +16,46 @@ class Engine(object):
     2.启动引擎（实现引擎调用核心逻辑）
     """
 
-    def __init__(self, spiders, pipelines, downloader_middlewares, spider_middlewares):
-        self.spiders = spiders  # 这里传递过来的是一个字典{爬虫名：爬虫对象}
+    def __init__(self):
+        self.spiders = self.__auto_import(settings.SPIDERS, is_spider=True)  # 这里传递过来的是一个字典{爬虫名：爬虫对象}
         self.scheduler = Scheduler()
         self.downloader = Downloader()
-        self.pipelines = pipelines
-        self.spider_middlewares = spider_middlewares
-        self.downloader_middlewares = downloader_middlewares
+        self.pipelines = self.__auto_import(settings.PIPELINES)
+        self.spider_middlewares = self.__auto_import(settings.SPIDER_MIDDLEWARES)
+        self.downloader_middlewares = self.__auto_import(settings.DOWNLOADER_MIDDLEWARES)
 
         # 定义变量，用于统计总的响应处理数量
         self.total_response_count = 0
+
+    @staticmethod
+    def __auto_import(full_names, is_spider=False):
+        """
+        动态导入:根据配置信息自动创建对象,封装成需要的格式返回
+        :param full_names: 配置全类名(路径)列表
+        :param is_spider: 判断是不是爬虫对象
+        :return: 配置类的对象列表或者字典
+        """
+        # 如果是爬虫就是字典,否则是列表
+        instances = {} if is_spider else []
+        for full_name in full_names:
+            result = full_name.rsplit('.', maxsplit=1)
+            # 模块名
+            module_name = result[0]
+            # 类名
+            class_name = result[1]
+            # 根据模块名,导入模块,获取模块对象
+            module = importlib.import_module(module_name)
+            # 根据类名,从模块对象中获取类对象
+            cls = getattr(module, class_name)
+            # 使用类对象,创建实例对象
+            instance = cls()
+            # 如果是爬虫,存储到字典中,否则存到列表里
+            if is_spider:
+                instances[instance.name] = instance
+            else:
+                instances.append(instance)
+
+        return instances
 
     def start(self):
         """启动引擎，对外提供接口"""
