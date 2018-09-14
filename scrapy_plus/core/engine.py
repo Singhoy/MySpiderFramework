@@ -17,13 +17,13 @@ class Engine(object):
     2.启动引擎（实现引擎调用核心逻辑）
     """
 
-    def __init__(self, spiders, pipelines):
+    def __init__(self, spiders, pipelines, downloader_middlewares, spider_middlewares):
         self.spiders = spiders  # 这里传递过来的是一个字典{爬虫名：爬虫对象}
         self.scheduler = Scheduler()
         self.downloader = Downloader()
         self.pipelines = pipelines
-        self.spider_middleware = SpiderMiddleware()
-        self.downloader_middleware = DownloaderMiddleware()
+        self.spider_middlewares = spider_middlewares
+        self.downloader_middlewares = downloader_middlewares
 
         # 定义变量，用于统计总的响应处理数量
         self.total_response_count = 0
@@ -62,17 +62,24 @@ class Engine(object):
         # 取出该请求对应爬虫对象，根据爬虫名去爬虫字典中取出爬虫对象
         spider = self.spiders[request.spider_name]
 
-        # 利用下载器中间件预处理请求对象
-        request = self.downloader_middleware.process_request(request)
+        # 遍历下载器中间件列表,获取每一个下载器中间件
+        for downloader_middleware in self.downloader_middlewares:
+            # 利用下载器中间件预处理请求对象
+            request = downloader_middleware.process_request(request)
         # 利用下载器发起请求
         response = self.downloader.get_response(request)
         # 把请求的meta数据传递给response
         response.meta = request.meta
 
         # 利用下载器中间件预处理响应对象
-        response = self.downloader_middleware.process_response(response)
-        # 调用爬虫中间件的process_response方法，处理响应
-        response = self.spider_middleware.process_response(response)
+        # 遍历下载器中间件列表,获取每个下载器中间件
+        for downloader_middleware in self.downloader_middlewares:
+            response = downloader_middleware.process_response(response)
+
+        # 遍历爬虫中间件列表,获取每一个爬虫中间件
+        for spider_middleware in self.spider_middlewares:
+            # 调用爬虫中间件的process_response方法，处理响应
+            response = spider_middleware.process_response(response)
 
         # 如果有该请求有对应解析函数callback，就使用callback来解析数据
         if request.callback:
@@ -89,8 +96,10 @@ class Engine(object):
             # 判断结果对象
             if isinstance(result, Request):
                 # 如果是请求对象，就再交给调度器
-                # 利用爬虫中间件预处理请求对象
-                result = self.spider_middleware.process_request(result)
+                # 遍历爬虫中间件列表,获取每个爬虫中间件
+                for spider_middleware in self.spider_middlewares:
+                    # 利用爬虫中间件预处理请求对象
+                    result = spider_middleware.process_request(result)
 
                 # 设置请求对象对应的爬虫名
                 result.spider_name = spider.name
@@ -113,6 +122,8 @@ class Engine(object):
                 request.spider_name = spider_name
 
                 # 利用爬虫中间件预处理请求对象
-                request = self.spider_middleware.process_request(request)
+                # 遍历爬虫中间件列表,获取每个爬虫中间件
+                for spider_middleware in self.spider_middlewares:
+                    request = spider_middleware.process_request(request)
                 # 调用调度器的add_request把请求添加到调度器中
                 self.scheduler.add_request(request)
