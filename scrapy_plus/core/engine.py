@@ -17,11 +17,11 @@ class Engine(object):
     2.启动引擎（实现引擎调用核心逻辑）
     """
 
-    def __init__(self, spiders):
+    def __init__(self, spiders, pipelines):
         self.spiders = spiders  # 这里传递过来的是一个字典{爬虫名：爬虫对象}
         self.scheduler = Scheduler()
         self.downloader = Downloader()
-        self.pipeline = Pipeline()
+        self.pipelines = pipelines
         self.spider_middleware = SpiderMiddleware()
         self.downloader_middleware = DownloaderMiddleware()
 
@@ -98,7 +98,8 @@ class Engine(object):
                 self.scheduler.add_request(result)
             else:
                 # 否则，交给管道处理
-                self.pipeline.process_item(result)
+                for pipeline in self.pipelines:
+                    result = pipeline.process_item(result, spider)
 
         # 统计总的响应数量，每次递增1
         self.total_response_count += 1
