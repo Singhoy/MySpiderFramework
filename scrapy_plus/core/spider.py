@@ -10,6 +10,9 @@ from scrapy_plus.win_http.request import Request
 
 
 class Spider(object):
+    # 爬虫名
+    name = 'spider'
+
     # 1.准备起始URL列表
     start_urls = []
 
