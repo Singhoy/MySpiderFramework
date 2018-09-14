@@ -11,6 +11,7 @@ from scrapy_plus.core.spider import Spider
 
 
 class DoubanSpider(Spider):
+    name = 'douban'
 
     def start_request(self):
         """重写start_request方法，返回多个请求"""
