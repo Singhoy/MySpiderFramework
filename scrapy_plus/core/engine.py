@@ -67,6 +67,8 @@ class Engine(object):
         logger.info("耗时：%.2f秒" % (stop - start).total_seconds())
         # 记录总请求数量
         logger.info('总请求数量：%s' % self.scheduler.total_request_count)
+        # 总过滤请求数量
+        logger.info('过滤掉的请求数量:%s' % self.scheduler.filtered_request_count)
         # 总响应数量
         logger.info('总响应处理数量：%s' % self.total_response_count)
 
