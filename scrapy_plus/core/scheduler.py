@@ -33,7 +33,8 @@ class Scheduler(object):
 
     def add_request(self, request):
         """添加请求到请求对列中"""
-        if self.__filter_request(request):
+        # 如果需要过滤，并且是重复请求才过滤
+        if not request.dont_filter and self.__filter_request(request):
             # 如果请求需要过滤,记录日志,直接返回
             logger.info('过滤掉了重复的请求:%s' % request.url)
             self.stats_collector.incr(self.stats_collector.repeat_request_nums_key)

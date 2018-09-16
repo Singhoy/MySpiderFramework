@@ -1,4 +1,13 @@
 """引擎组件"""
+import importlib
+import time
+from collections import Iterable
+from datetime import datetime
+
+from scrapy_plus.core.downloader import Downloader
+from scrapy_plus.core.scheduler import Scheduler
+from scrapy_plus.utils.log import logger
+from scrapy_plus.win_http.request import Request
 from scrapy_plus.conf import settings
 
 # 根据异步类型导入不同的池
@@ -14,16 +23,6 @@ if not settings.SCHEDULER_PERSIST:
 else:
     # 支持分布式，导入redis版指纹容器
     from scrapy_plus.utils.stats_collector import RedisStatsCollector as StatsCollector
-
-import importlib
-import time
-from collections import Iterable
-from datetime import datetime
-
-from scrapy_plus.core.downloader import Downloader
-from scrapy_plus.core.scheduler import Scheduler
-from scrapy_plus.utils.log import logger
-from scrapy_plus.win_http.request import Request
 
 
 class Engine(object):
@@ -43,6 +42,8 @@ class Engine(object):
         self.spider_middlewares = self.__auto_import(settings.SPIDER_MIDDLEWARES)
         self.downloader_middlewares = self.__auto_import(settings.DOWNLOADER_MIDDLEWARES)
         self.pool = Pool()  # 创建线程池对象
+        # 定义变量，用于记录起始请求完成的爬虫数量
+        self.start_request_finished_spider_count = 0
 
     @staticmethod
     def __auto_import(full_names, is_spider=False):
@@ -126,10 +127,12 @@ class Engine(object):
             # 死循环进行轮询，非常消耗cpu性能，稍睡一下，降低消耗
             time.sleep(0.1)
 
-            # 当所有请求都处理完成，要结束循环
-            if self.stats_collector.response_nums >= self.stats_collector.request_nums:
-                # 没有请求了，退出循环
-                break
+            # 当所有爬虫的起始请求都执行完了才结束
+            if self.start_request_finished_spider_count >= len(self.spiders):
+                # 当所有请求都处理完成，要结束循环
+                if self.stats_collector.response_nums >= self.stats_collector.request_nums:
+                    # 没有请求了，退出循环
+                    break
 
     def __execute_request_response_item(self):
         """处理请求、响应和数据方法"""
@@ -193,17 +196,27 @@ class Engine(object):
     def __add_start_requests(self):
         # 遍历爬虫字典，取出爬虫对象
         for spider_name, spider in self.spiders.items():
-            # 调用爬虫start_request方法，获取请求对象
-            for request in spider.start_request():
-                # 设置该请求对应的爬虫名
-                request.spider_name = spider_name
+            # 异步执行起始请求任务，防止有增量爬虫启动后不停止而后面的爬虫不执行的问题
+            self.pool.apply_async(self.__add_one_spider_start_requests, args=(spider, spider_name),
+                                  error_callback=self.__error_callback,
+                                  callback=self.__add_one_spider_start_requests_callback)
 
-                # 统计起始请求数量
-                self.stats_collector.incr(self.stats_collector.start_request_nums_key)
+    def __add_one_spider_start_requests_callback(self, temp):
+        """每调用一次，起始请求完成数+1"""
+        self.start_request_finished_spider_count += 1
 
-                # 利用爬虫中间件预处理请求对象
-                # 遍历爬虫中间件列表,获取每个爬虫中间件
-                for spider_middleware in self.spider_middlewares:
-                    request = spider_middleware.process_request(request)
-                # 调用调度器的add_request把请求添加到调度器中
-                self.scheduler.add_request(request)
+    def __add_one_spider_start_requests(self, spider, spider_name):
+        # 调用爬虫start_request方法，获取请求对象
+        for request in spider.start_request():
+            # 设置该请求对应的爬虫名
+            request.spider_name = spider_name
+
+            # 统计起始请求数量
+            self.stats_collector.incr(self.stats_collector.start_request_nums_key)
+
+            # 利用爬虫中间件预处理请求对象
+            # 遍历爬虫中间件列表,获取每个爬虫中间件
+            for spider_middleware in self.spider_middlewares:
+                request = spider_middleware.process_request(request)
+            # 调用调度器的add_request把请求添加到调度器中
+            self.scheduler.add_request(request)
