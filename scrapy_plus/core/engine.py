@@ -1,11 +1,18 @@
 """引擎组件"""
+from scrapy_plus.conf import settings
+
+# 根据异步类型导入不同的池
+if settings.ASYNC_TYPE.lower() == 'thread':
+    # 异步类型是线程，导入线程池
+    from multiprocessing.dummy import Pool
+else:
+    from scrapy_plus.async.coroutine import Pool
+
 import importlib
 import time
 from collections import Iterable
 from datetime import datetime
-from multiprocessing.dummy import Pool
 
-from scrapy_plus.conf import settings
 from scrapy_plus.core.downloader import Downloader
 from scrapy_plus.core.scheduler import Scheduler
 from scrapy_plus.utils.log import logger
@@ -84,7 +91,8 @@ class Engine(object):
 
     def __callback_execute(self, temp):
         """异步线程池回调函数"""
-        self.pool.apply_async(self.__execute_request_response_item, callback=self.__callback_execute, error_callback=self.__error_callback)
+        self.pool.apply_async(self.__execute_request_response_item, callback=self.__callback_execute,
+                              error_callback=self.__error_callback)
 
     def __start(self):
         """私有启动引擎的方法，实现核心代码"""
@@ -95,7 +103,8 @@ class Engine(object):
         # 配置多少个异步任务，这个异步调用就执行多少次
         for i in range(settings.ASYNC_COUNT):
             # 异步执行__execute_request_response_item任务
-            self.pool.apply_async(self.__execute_request_response_item, callback=self.__callback_execute, error_callback=self.__error_callback)
+            self.pool.apply_async(self.__execute_request_response_item, callback=self.__callback_execute,
+                                  error_callback=self.__error_callback)
 
         # 让主线程等待一下，让上面的异步任务启动起来
         time.sleep(1)

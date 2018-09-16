@@ -20,3 +20,6 @@ SPIDER_MIDDLEWARES = []
 
 # 配置异步任务数量
 ASYNC_COUNT = 5
+
+# 配置异步类型：thread线程，coroutine协程
+ASYNC_TYPE = 'thread'
