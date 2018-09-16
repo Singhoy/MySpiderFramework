@@ -94,6 +94,9 @@ class Engine(object):
         # 如果启用分布式，当前程序结束的时候，清空统计信息
         if settings.SCHEDULER_PERSIST:
             self.stats_collector.clear()
+            if not settings.FP_PERSIST:
+                # 如果不开启断点续爬，清空指纹和请求队列数据
+                self.scheduler.clear()
 
     @staticmethod
     def __error_callback(e):

@@ -8,13 +8,17 @@ from lxml import etree
 class Response(object):
     """框架内置Response对象"""
 
-    def __init__(self, url, status_code, headers={}, body=None, meta={}):
+    def __init__(self, url, status_code, headers=None, body=None, meta=None):
         """
         :param url: 响应的URL
         :param status_code: 状态码
         :param headers: 响应头
         :param body: 响应的数据（二进制的）
         """
+        if meta is None:
+            meta = {}
+        if headers is None:
+            headers = {}
         self.url = url
         self.status_code = status_code
         self.headers = headers

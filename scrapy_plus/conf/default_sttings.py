@@ -36,3 +36,6 @@ REDIS_SET_NAME = 'scrapy_plus_fp_set_key'
 REDIS_HOST = '127.0.0.1'
 REDIS_PORT = 6379
 REDIS_DB = 0
+
+# 配置断点续爬，默认开启
+FP_PERSIST = True

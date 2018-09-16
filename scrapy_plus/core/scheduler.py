@@ -94,3 +94,11 @@ class Scheduler(object):
         else:
             # py3中,str类型是字符串,bytes是二进制类型
             return i.encode('utf8') if isinstance(i, str) else i
+
+    def clear(self):
+        """当分布式的时候，清空指纹和请求对列"""
+        if settings.SCHEDULER_PERSIST:
+            # 清空请求队列
+            self.queue.clear()
+            # 清空指纹数据
+            self.__filter_container.clear()
