@@ -17,3 +17,6 @@ DOWNLOADER_MIDDLEWARES = []
 
 # 配置爬虫中间件
 SPIDER_MIDDLEWARES = []
+
+# 配置异步任务数量
+ASYNC_COUNT = 5

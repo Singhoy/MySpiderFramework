@@ -1,7 +1,9 @@
 """引擎组件"""
 import importlib
+import time
 from collections import Iterable
 from datetime import datetime
+from multiprocessing.dummy import Pool
 
 from scrapy_plus.conf import settings
 from scrapy_plus.core.downloader import Downloader
@@ -23,6 +25,7 @@ class Engine(object):
         self.pipelines = self.__auto_import(settings.PIPELINES)
         self.spider_middlewares = self.__auto_import(settings.SPIDER_MIDDLEWARES)
         self.downloader_middlewares = self.__auto_import(settings.DOWNLOADER_MIDDLEWARES)
+        self.pool = Pool()  # 创建线程池对象
 
         # 定义变量，用于统计总的响应处理数量
         self.total_response_count = 0
@@ -72,14 +75,35 @@ class Engine(object):
         # 总响应数量
         logger.info('总响应处理数量：%s' % self.total_response_count)
 
+    def __error_callback(self, e):
+        """错误回调函数"""
+        try:
+            raise e
+        except Exception as e:
+            logger.exception(e)
+
+    def __callback_execute(self, temp):
+        """异步线程池回调函数"""
+        self.pool.apply_async(self.__execute_request_response_item, callback=self.__callback_execute, error_callback=self.__error_callback)
+
     def __start(self):
         """私有启动引擎的方法，实现核心代码"""
         # 添加起始请求到调度器中
-        self.__add_start_requests()
+        # 异步执行__add_start_requests任务
+        self.pool.apply_async(self.__add_start_requests, error_callback=self.__error_callback)
+
+        # 配置多少个异步任务，这个异步调用就执行多少次
+        for i in range(settings.ASYNC_COUNT):
+            # 异步执行__execute_request_response_item任务
+            self.pool.apply_async(self.__execute_request_response_item, callback=self.__callback_execute, error_callback=self.__error_callback)
+
+        # 让主线程等待一下，让上面的异步任务启动起来
+        time.sleep(1)
 
         while True:
-            # 从调度器中，获取请求进行处理
-            self.__execute_request_response_item()
+            # 死循环进行轮询，非常消耗cpu性能，稍睡一下，降低消耗
+            time.sleep(0.1)
+
             # 当所有请求都处理完成，要结束循环
             if self.total_response_count >= self.scheduler.total_request_count:
                 # 没有请求了，退出循环
