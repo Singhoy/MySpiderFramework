@@ -2,10 +2,19 @@
 from hashlib import sha1
 
 import six
-from six.moves.queue import Queue
 from w3lib.url import canonicalize_url
 
 from scrapy_plus.utils.log import logger
+from scrapy_plus.conf import settings
+
+if not settings.SCHEDULER_PERSIST:
+    # 不启用分布式，导入内存版指纹容器
+    from six.moves.queue import Queue
+    from scrapy_plus.utils.set import NormalFilterContainer as FilterContainer
+else:
+    # 启用分布式，导入redis版指纹容器
+    from scrapy_plus.utils.queue import Queue
+    from scrapy_plus.utils.set import RedisFilterContainer as FilterContainer
 
 
 class Scheduler(object):
@@ -14,27 +23,25 @@ class Scheduler(object):
     2. 请求去重
     """
 
-    def __init__(self):
+    def __init__(self, stats_collector):
+        # 接收传递过来的统计器对象
+        self.stats_collector = stats_collector
         # 创建队列对象，用于缓存请求
         self.queue = Queue()
-        # 定义变量,用于统计总请求数量
-        self.total_request_count = 0
-        # 创建set集合,用于存储指纹数据
-        self.__filter_container = set()
-        # 定义变量,用于统计过滤掉的请求数量
-        self.filtered_request_count = 0
+        # 创建指纹容器,用于存储指纹数据
+        self.__filter_container = FilterContainer()
 
     def add_request(self, request):
         """添加请求到请求对列中"""
         if self.__filter_request(request):
             # 如果请求需要过滤,记录日志,直接返回
             logger.info('过滤掉了重复的请求:%s' % request.url)
-            self.filtered_request_count += 1
+            self.stats_collector.incr(self.stats_collector.repeat_request_nums_key)
             return
 
         self.queue.put(request)
         # 每添加一次请求，就让总请求数量加1
-        self.total_request_count += 1
+        self.stats_collector.incr(self.stats_collector.request_nums_key)
 
     def get_request(self):
         # 从队列中获取请求，并返回请求
@@ -48,11 +55,11 @@ class Scheduler(object):
         # 1.获取请求对应指纹
         fp = self.__get_fp(request)
         # 如果指纹在容器里,说明这个请求已经重复了
-        if fp in self.__filter_container:
+        if self.__filter_container.exists(fp):
             return True
 
         # 能来到这里,说明这个请求是全新的,把指纹添加到指纹容器中
-        self.__filter_container.add(fp)
+        self.__filter_container.add_fp(fp)
         return False
 
     def __get_fp(self, request):

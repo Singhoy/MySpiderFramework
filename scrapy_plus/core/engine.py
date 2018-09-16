@@ -7,6 +7,13 @@ if settings.ASYNC_TYPE.lower() == 'thread':
     from multiprocessing.dummy import Pool
 else:
     from scrapy_plus.async.coroutine import Pool
+# 导入统计器类
+if not settings.SCHEDULER_PERSIST:
+    # 不支持分布式，导入内存版指纹容器
+    from scrapy_plus.utils.stats_collector import NormalStatsCollector as StatsCollector
+else:
+    # 支持分布式，导入redis版指纹容器
+    from scrapy_plus.utils.stats_collector import RedisStatsCollector as StatsCollector
 
 import importlib
 import time
@@ -27,15 +34,15 @@ class Engine(object):
 
     def __init__(self):
         self.spiders = self.__auto_import(settings.SPIDERS, is_spider=True)  # 这里传递过来的是一个字典{爬虫名：爬虫对象}
-        self.scheduler = Scheduler()
+        # 创建统计器对象
+        self.stats_collector = StatsCollector()
+        # 把统计器对象传递给调度器
+        self.scheduler = Scheduler(self.stats_collector)
         self.downloader = Downloader()
         self.pipelines = self.__auto_import(settings.PIPELINES)
         self.spider_middlewares = self.__auto_import(settings.SPIDER_MIDDLEWARES)
         self.downloader_middlewares = self.__auto_import(settings.DOWNLOADER_MIDDLEWARES)
         self.pool = Pool()  # 创建线程池对象
-
-        # 定义变量，用于统计总的响应处理数量
-        self.total_response_count = 0
 
     @staticmethod
     def __auto_import(full_names, is_spider=False):
@@ -75,14 +82,20 @@ class Engine(object):
         stop = datetime.now()
         logger.info("运行结束时间：%s" % stop)
         logger.info("耗时：%.2f秒" % (stop - start).total_seconds())
+        # 总起始请求数量
+        logger.info('总起始请求数量:%s' % self.stats_collector.start_request_nums)
         # 记录总请求数量
-        logger.info('总请求数量：%s' % self.scheduler.total_request_count)
+        logger.info('总请求数量：%s' % self.stats_collector.request_nums)
         # 总过滤请求数量
-        logger.info('过滤掉的请求数量:%s' % self.scheduler.filtered_request_count)
+        logger.info('过滤掉的请求数量:%s' % self.stats_collector.repeat_request_nums)
         # 总响应数量
-        logger.info('总响应处理数量：%s' % self.total_response_count)
+        logger.info('总响应处理数量：%s' % self.stats_collector.response_nums)
+        # 如果启用分布式，当前程序结束的时候，清空统计信息
+        if settings.SCHEDULER_PERSIST:
+            self.stats_collector.clear()
 
-    def __error_callback(self, e):
+    @staticmethod
+    def __error_callback(e):
         """错误回调函数"""
         try:
             raise e
@@ -114,7 +127,7 @@ class Engine(object):
             time.sleep(0.1)
 
             # 当所有请求都处理完成，要结束循环
-            if self.total_response_count >= self.scheduler.total_request_count:
+            if self.stats_collector.response_nums >= self.stats_collector.request_nums:
                 # 没有请求了，退出循环
                 break
 
@@ -175,7 +188,7 @@ class Engine(object):
                     result = pipeline.process_item(result, spider)
 
         # 统计总的响应数量，每次递增1
-        self.total_response_count += 1
+        self.stats_collector.incr(self.stats_collector.response_nums_key)
 
     def __add_start_requests(self):
         # 遍历爬虫字典，取出爬虫对象
@@ -184,6 +197,9 @@ class Engine(object):
             for request in spider.start_request():
                 # 设置该请求对应的爬虫名
                 request.spider_name = spider_name
+
+                # 统计起始请求数量
+                self.stats_collector.incr(self.stats_collector.start_request_nums_key)
 
                 # 利用爬虫中间件预处理请求对象
                 # 遍历爬虫中间件列表,获取每个爬虫中间件

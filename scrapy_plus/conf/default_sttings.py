@@ -23,3 +23,16 @@ ASYNC_COUNT = 5
 
 # 配置异步类型：thread线程，coroutine协程
 ASYNC_TYPE = 'thread'
+
+# 配置是否启用分布式，默认启用
+SCHEDULER_PERSIST = True
+
+# 配置redis
+# 用于指定基于Redis的队列, 在Redis数据中的key
+REDIS_QUEUE_NAME = 'scrapy_plus_request_queue_key'
+# 用于指定基于Redis的set集合key: 用于存储指纹数据
+REDIS_SET_NAME = 'scrapy_plus_fp_set_key'
+
+REDIS_HOST = '127.0.0.1'
+REDIS_PORT = 6379
+REDIS_DB = 0
