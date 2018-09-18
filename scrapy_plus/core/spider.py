@@ -1,4 +1,6 @@
 """爬虫组件封装"""
+from scrapy_plus.conf.default_sttings import HEADERS
+
 from scrapy_plus.item import Item
 from scrapy_plus.win_http.request import Request
 
@@ -21,10 +23,10 @@ class Spider(object):
         # 遍历起始URL列表，创建请求对象，交给引擎
         for url in self.start_urls:
             # 返回请求数据
-            yield Request(url)
+            yield Request(url, headers=HEADERS)
 
     def parse(self, response):
         # 3.对响应数据进行解析，返回数据或新请求
-        item = Item(response.url)
+        item = Item(response.body)
 
         return item

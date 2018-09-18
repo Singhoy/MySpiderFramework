@@ -1,10 +1,11 @@
 """Request对象"""
+from scrapy_plus.conf.default_sttings import HEADERS
 
 
 class Request(object):
     """框架内置请求对象，设置请求信息"""
 
-    def __init__(self, url, method='GET', headers=None, params=None, data=None, callback=None, meta=None,
+    def __init__(self, url, method='GET', headers=HEADERS, params=None, data=None, callback=None, meta=None,
                  dont_filter=False):
         """
         :param url: 请求的URL
@@ -22,8 +23,6 @@ class Request(object):
             data = {}
         if params is None:
             params = {}
-        if headers is None:
-            headers = {}
         self.url = url
         self.method = method
         self.headers = headers
