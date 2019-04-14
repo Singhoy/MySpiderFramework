@@ -7,6 +7,9 @@ Scrapy
     scrapy startproject 项目名
     # 生成爬虫
     scrapy genspider 爬虫名 域名
+        # crawlspider
+        scrapy genspider -t crawl 爬虫名 域名
+    	    # restrict_xpaths: 使用xpath规则进行匹配，和allow共同过滤url，即	xpath满足的范围内的url地址会被提取
     # 完善爬虫代码
     	# 提取数据或请求
     # 保存数据
